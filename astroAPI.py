@@ -1,42 +1,34 @@
-from flask import Flask, request, jsonify
+from __init__ import app
+from flask import request, jsonify
+from models import Constellation, Stars, ConstellationSchema, StarSchema
 
-app = Flask(__name__)
+
+# App configuration
 app.config['DEBUG'] = True
-app.config['JSON_SORT_KEYS'] = False
-app.config['JSON_AS_ASCII'] = False
 
+# Schema init
+constellation_schema = ConstellationSchema()
+constellations_schema = ConstellationSchema(many=True)
 
-blank = [{'AstroPy': 'no argument'}]
+star_schema = StarSchema()
+stars_schema = StarSchema(many=True)
 
-ursa_major = {
-        'name': 'Ursa Major',
-        'right ascension': '10.67h',
-        'declination': '+55.38°',
-        'quadrant': 'NQ2',
-        'min latitude': '-30°',
-        'max latitude': '+90°',
-        'main stars': [
-            'Dubhe',
-            'Merak',
-            'Phecda',
-            'Megrez',
-            'Alioth',
-            'Mizar',
-            'Alkaid'
-        ],
-        'calculus': 21
-}
+# API logic
+
+default = [{'AstroPy': 'no argument'}]
 
 
 @app.route('/')
 def home():
-    return '<h1>Hello, World</h1>'
+    return """<h1 style="text-align: center; justify-content: center"> 
+                    This is AstroPy 
+              </h1>"""
 
 
 @app.route('/hello', methods=['GET'])
-def cheer():
+def greetings():
     if not request.args:
-        return jsonify(blank)
+        return jsonify(default)
 
     response = {'name': request.args['name'], 'age': int(request.args['age'])}
     return jsonify(response)
@@ -45,16 +37,13 @@ def cheer():
 @app.route('/astropy/api/v1/constellations', methods=['GET'])
 def constellation():
     if not request.args:
-        return jsonify(blank)
+        return jsonify(default)
 
     c = request.args['c']
-    try:
-        result = int(request.args['add']) + ursa_major['calculus']
-        ursa_major['calculus'] = result
-    except:
-        pass
-    # TODO database query of the constellation
-    return jsonify(ursa_major)
+    query_result = Constellation.query.filter_by(name=c).first_or_404()
+    output = constellation_schema.dump(query_result)
+
+    return jsonify(output)
 
 
 if __name__ == '__main__':
