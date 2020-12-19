@@ -48,7 +48,56 @@ def constellation():
 
 @app.route('/astropy/api/v1/query', methods=['GET'])
 def get_constellation_via_query():
-    pass
+    """ Parameters accepted: [quadrant as q, min_latitude as min, max_latitude as max] """
+
+    if not request.args:
+        return jsonify(default)
+
+    if 'q' in request.args:
+        obj_query = Constellation.query.filter_by(quadrant=request.args['q'])
+        if 'min' in request.args and 'max' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      min_latitude=request.args['min'],
+                                                      max_latitude=request.args['max'])
+        if 'min' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      min_latitude=request.args['min'])
+        if 'max' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      max_latitude=request.args['max'])
+
+    if 'min' in request.args:
+        obj_query = Constellation.query.filter_by(min_latitude=request.args['min'])
+        if 'q' in request.args and 'max' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      min_latitude=request.args['min'],
+                                                      max_latitude=request.args['max'])
+        if 'q' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      min_latitude=request.args['min'])
+        if 'max' in request.args:
+            obj_query = Constellation.query.filter_by(min_latitude=request.args['min'],
+                                                      max_latitude=request.args['max'])
+
+    if 'max' in request.args:
+        obj_query = Constellation.query.filter_by(max_latitude=request.args['max'])
+        if 'min' in request.args and 'q' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      min_latitude=request.args['min'],
+                                                      max_latitude=request.args['max'])
+        if 'min' in request.args:
+            obj_query = Constellation.query.filter_by(max_latitude=request.args['max'],
+                                                      min_latitude=request.args['min'])
+        if 'q' in request.args:
+            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                      max_latitude=request.args['max'])
+
+    if obj_query is None or len(obj_query.all()) == 0:
+        output = {'No record found': 404}
+    else:
+        output = constellations_schema.dump(obj_query)
+
+    return jsonify(output)
 
 
 if __name__ == '__main__':
