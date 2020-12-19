@@ -20,7 +20,7 @@ default = [{'AstroPy': 'no argument'}]
 
 @app.route('/')
 def home():
-    return """<h1 style="text-align: center; justify-content: center"> 
+    return """<h1 style="text-align: center> 
                     This is AstroPy 
               </h1>"""
 
@@ -34,7 +34,7 @@ def greetings():
     return jsonify(response)
 
 
-@app.route('/astropy/api/v1/constellations', methods=['GET'])
+@app.route('/astropy/api/v1/constellation', methods=['GET'])
 def constellation():
     if not request.args:
         return jsonify(default)
@@ -44,6 +44,11 @@ def constellation():
     output = constellation_schema.dump(query_result)
 
     return jsonify(output)
+
+
+@app.route('/astropy/api/v1/query', methods=['GET'])
+def get_constellation_via_query():
+    pass
 
 
 if __name__ == '__main__':

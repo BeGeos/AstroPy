@@ -2,11 +2,18 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from marshmallow import fields
 from __init__ import app
+from flask_script import Manager
+from flask_migrate import Migrate, MigrateCommand
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///astropy.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+# Migration configuration
+migrate = Migrate(app, db)
+manager = Manager(app)
+manager.add_command('db', MigrateCommand)
 
 # Serialisation config
 ma = Marshmallow(app)
@@ -58,5 +65,6 @@ class ConstellationSchema(ma.SQLAlchemySchema):
     stars = fields.Nested(StarSchema(many=True))
 
 
-
+if __name__ == '__main__':
+    manager.run()
 
