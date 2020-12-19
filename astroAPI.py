@@ -47,7 +47,7 @@ def constellation():
 
 
 @app.route('/astropy/api/v1/query', methods=['GET'])
-def get_constellation_via_query():
+def get_constellations_via_query():
     """ Parameters accepted: [quadrant as q, min_latitude as min, max_latitude as max] """
 
     if not request.args:
@@ -98,6 +98,16 @@ def get_constellation_via_query():
         output = constellations_schema.dump(obj_query)
 
     return jsonify(output)
+
+
+@app.route('/astropy/api/v1/constellation/all')
+def get_all_constellations():
+    _all = Constellation.query.all()
+    output = constellations_schema.dump(_all)
+    return jsonify(output)
+
+
+# TODO query path for stars
 
 
 if __name__ == '__main__':
