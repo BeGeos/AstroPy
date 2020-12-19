@@ -36,6 +36,11 @@ class Constellation(db.Model):
 class Stars(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     star = db.Column(db.String(64), nullable=False, unique=True)
+    right_ascension = db.Column(db.String(24))
+    declination = db.Column(db.String(24))
+    type = db.Column(db.String(24))
+    app_magnitude = db.Column(db.Float)
+    distance = db.Column(db.Float)
     constellation_id = db.Column(db.Integer, db.ForeignKey('constellation.id'))
     constellation = db.relationship('Constellation', backref='stars', lazy=True)
 
@@ -49,6 +54,20 @@ class StarSchema(ma.SQLAlchemySchema):
 
     # id = ma.auto_field()
     name = ma.auto_field(column_name='star')
+    right_ascension = ma.auto_field()
+    declination = ma.auto_field()
+    type = ma.auto_field()
+    apparent_magnitude = ma.auto_field(column_name='app_magnitude')
+
+
+class SingleStarSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Stars
+
+
+class SingleConstellationSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Constellation
 
 
 class ConstellationSchema(ma.SQLAlchemySchema):
