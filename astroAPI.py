@@ -1,6 +1,6 @@
 from __init__ import app
 from flask import request, jsonify
-from models import Constellation, Stars, ConstellationSchema, StarSchema
+from models import Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
 
 
 # App configuration
@@ -10,8 +10,8 @@ app.config['DEBUG'] = True
 constellation_schema = ConstellationSchema()
 constellations_schema = ConstellationSchema(many=True)
 
-star_schema = StarSchema()
-stars_schema = StarSchema(many=True)
+single_star_schema = SingleStarSchema()
+multiple_stars_schema = StarSchema(many=True)
 
 # API logic
 
@@ -20,8 +20,8 @@ default = [{'AstroPy': 'no argument'}]
 
 @app.route('/')
 def home():
-    return """<h1 style="text-align: center> 
-                    This is AstroPy 
+    return """<h1 style="text-align: center"> 
+                    This is AstroPy
               </h1>"""
 
 
@@ -30,7 +30,7 @@ def greetings():
     if not request.args:
         return jsonify(default)
 
-    response = {'name': request.args['name'], 'age': int(request.args['age'])}
+    response = {'first_name': request.args['name'], 'last_name': int(request.args['age'])}
     return jsonify(response)
 
 
@@ -43,7 +43,7 @@ def constellation():
     query_result = Constellation.query.filter_by(name=c).first_or_404()
     output = constellation_schema.dump(query_result)
 
-    return jsonify(output)
+    return jsonify({'constellation': output})
 
 
 @app.route('/astropy/api/v1/query', methods=['GET'])
@@ -53,12 +53,14 @@ def get_constellations_via_query():
     if not request.args:
         return jsonify(default)
 
+    if 'q' in request.args and 'min' in request.args and 'max' in request.args:
+        obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
+                                                  min_latitude=request.args['min'],
+                                                  max_latitude=request.args['max'])
+
     if 'q' in request.args:
         obj_query = Constellation.query.filter_by(quadrant=request.args['q'])
-        if 'min' in request.args and 'max' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      min_latitude=request.args['min'],
-                                                      max_latitude=request.args['max'])
+
         if 'min' in request.args:
             obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
                                                       min_latitude=request.args['min'])
@@ -68,10 +70,7 @@ def get_constellations_via_query():
 
     if 'min' in request.args:
         obj_query = Constellation.query.filter_by(min_latitude=request.args['min'])
-        if 'q' in request.args and 'max' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      min_latitude=request.args['min'],
-                                                      max_latitude=request.args['max'])
+
         if 'q' in request.args:
             obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
                                                       min_latitude=request.args['min'])
@@ -81,10 +80,7 @@ def get_constellations_via_query():
 
     if 'max' in request.args:
         obj_query = Constellation.query.filter_by(max_latitude=request.args['max'])
-        if 'min' in request.args and 'q' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      min_latitude=request.args['min'],
-                                                      max_latitude=request.args['max'])
+
         if 'min' in request.args:
             obj_query = Constellation.query.filter_by(max_latitude=request.args['max'],
                                                       min_latitude=request.args['min'])
@@ -107,7 +103,24 @@ def get_all_constellations():
     return jsonify(output)
 
 
-# TODO query path for stars
+@app.route('/astropy/api/v1/star')
+def get_star():
+    if not request.args:
+        return jsonify(default)
+
+    s = request.args['s']
+    query_result = Stars.query.filter_by(star=s).first_or_404()
+    output = single_star_schema.dump(query_result)
+
+    return jsonify(output)
+
+
+@app.route('/astropy/api/v1/star/all')
+def get_all_stars():
+    _all = Stars.query.all()
+    output = multiple_stars_schema.dump(_all)
+
+    return jsonify(output)
 
 
 if __name__ == '__main__':
