@@ -60,14 +60,24 @@ class StarSchema(ma.SQLAlchemySchema):
     apparent_magnitude = ma.auto_field(column_name='app_magnitude')
 
 
+class SingleConstellationSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Constellation
+
+    name = ma.auto_field()
+
+
 class SingleStarSchema(ma.SQLAlchemySchema):
     class Meta:
         model = Stars
 
-
-class SingleConstellationSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Constellation
+    name = ma.auto_field(column_name='star')
+    right_ascension = ma.auto_field()
+    declination = ma.auto_field()
+    apparent_magnitude = ma.auto_field(column_name='app_magnitude')
+    distance = ma.auto_field()
+    type = ma.auto_field()
+    constellation = fields.Nested(SingleConstellationSchema())
 
 
 class ConstellationSchema(ma.SQLAlchemySchema):
