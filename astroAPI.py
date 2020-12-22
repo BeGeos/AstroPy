@@ -3,6 +3,7 @@ from flask import request, jsonify
 from models import Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
 from messages import messages
 from werkzeug import exceptions
+import functions
 
 # Schema init
 constellation_schema = ConstellationSchema()
@@ -122,6 +123,64 @@ def get_all_stars():
 
 
 # TODO get stars via query -- distance only
+
+@app.route('/astropy/api/v1/where-to-look')
+def where_to_look():
+    # where to look (declination - position)
+    """ Parameters: [latitude as lat and longitude as lon, and the star to observe as s]
+        Positive latitude indicates the Northern hemisphere, whereas negative
+        the Southern hemisphere """
+
+    if not request.args:
+        return jsonify({'message': messages['no argument']})
+
+    s = request.args['s']
+    lat = request.args['lat']
+    lon = request.args['lon']
+    try:
+        star = Stars.query.filter_by(star=s).first()
+    except exceptions.NotFound:
+        return jsonify({'message': messages['not found']})
+
+    declination = star.declination
+    RA = star.right_ascension
+    int_declination = int(declination[:3])
+
+    where = int_declination - int(lat)
+    response = {'star': s, 'declination': declination, 'RA': RA,
+                'lat': lat, 'lon': lon}
+    if abs(where) > 90:
+        response['where'] = f'{s} is not visible from your location'
+    elif - 2 < where < + 2:
+        response['where'] = 'just look over your head'
+    elif where < 0:
+        response['where'] = f'{where}° towards south'
+    elif where > 0:
+        response['where'] = f'{where}° towards north'
+
+    # Get the time of sunrise and sunset from API call
+    sun_time = functions.sun_time_from_api(lat, lon)
+    response['sunrise at location'] = sun_time['sunrise']
+    response['sunset at location'] = sun_time['sunset']
+
+    # Check for circumpolar stars
+    if int(lat) + int_declination > 90 or int(lat) + int_declination < - 90:
+        response['it rises'] = f'{s} is always visible from this location'
+
+    else:
+        star_rise_time = functions.star_rising_time(int(RA[:2]), sun_time)
+        degrees = functions.calculate_position(star_rise_time)
+        star_set_time = star_rise_time + 12
+        if star_set_time >= 24:
+            star_set_time -= 24
+        response['it rises'] = star_rise_time
+        response['it sets'] = star_set_time
+        # TODO response['current position'] = degrees
+
+    return jsonify(response)
+
+# right ascension == number of hours behind the Sun on 21st March
+
 
 if __name__ == '__main__':
     app.run()
