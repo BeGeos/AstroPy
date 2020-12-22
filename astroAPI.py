@@ -168,18 +168,42 @@ def where_to_look():
         response['it rises'] = f'{s} is always visible from this location'
 
     else:
-        star_rise_time = functions.star_rising_time(int(RA[:2]), sun_time)
-        degrees = functions.calculate_position(star_rise_time)
-        star_set_time = star_rise_time + 12
-        if star_set_time >= 24:
-            star_set_time -= 24
-        response['it rises'] = star_rise_time
-        response['it sets'] = star_set_time
+        star_time = functions.star_rising_time(int(RA[:2]), sun_time)
+        degrees = functions.calculate_position(star_time['star rise'])
+
+        response['it rises'] = star_time['star rise']
+        response['it sets'] = star_time['star set']
         # TODO response['current position'] = degrees
 
     return jsonify(response)
 
 # right ascension == number of hours behind the Sun on 21st March
+
+
+@app.route('/astropy/api/v1/star/closest/<int:limit>')
+def closest(limit):
+    if limit <= 0:
+        limit = 5
+    elif limit > 25:
+        limit = 25
+
+    _closest = Stars.query.order_by('distance').limit(limit)
+    output = multiple_stars_schema.dump(_closest)
+
+    return jsonify(output)
+
+
+@app.route('/astropy/api/v1/star/brightest/<int:limit>')
+def brightest(limit):
+    if limit <= 0:
+        limit = 5
+    elif limit > 25:
+        limit = 25
+
+    _brightest = Stars.query.order_by('app_magnitude').limit(limit)
+    output = multiple_stars_schema.dump(_brightest)
+
+    return jsonify(output)
 
 
 if __name__ == '__main__':
