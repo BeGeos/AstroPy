@@ -5,9 +5,7 @@ from __init__ import app
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///astropy.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Database init
 db = SQLAlchemy(app)
 
 # Migration configuration
@@ -15,22 +13,20 @@ migrate = Migrate(app, db)
 manager = Manager(app)
 manager.add_command('db', MigrateCommand)
 
-# Serialisation config
+# Serialisation configuration
 ma = Marshmallow(app)
-# app.config['JSON_SORT_KEYS'] = False
-app.config['JSON_AS_ASCII'] = False
-
-""" Models Set up """
 
 
+# Models Setup
 class Constellation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False, unique=True)
     right_ascension = db.Column(db.String(24), nullable=False)
     declination = db.Column(db.String(24), nullable=False)
     quadrant = db.Column(db.String(8), nullable=False)
-    min_latitude = db.Column(db.String(4), nullable=False)
-    max_latitude = db.Column(db.String(4), nullable=False)
+    min_latitude = db.Column(db.Integer, nullable=False)
+    max_latitude = db.Column(db.Integer, nullable=False)
+    best_seen = db.Column(db.String(8))
 
 
 class Stars(db.Model):
@@ -48,15 +44,13 @@ class Stars(db.Model):
         return self.name
 
 
+# Schema Setup
 class StarSchema(ma.SQLAlchemySchema):
     class Meta:
         model = Stars
 
     # id = ma.auto_field()
     name = ma.auto_field(column_name='star')
-    right_ascension = ma.auto_field()
-    declination = ma.auto_field()
-    type = ma.auto_field()
     apparent_magnitude = ma.auto_field(column_name='app_magnitude')
 
 
@@ -96,4 +90,3 @@ class ConstellationSchema(ma.SQLAlchemySchema):
 
 if __name__ == '__main__':
     manager.run()
-
