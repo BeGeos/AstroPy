@@ -5,5 +5,6 @@ messages = {
     'no argument': 'No argument passed in',
     'not found': 'No record found',
     'hello': 'Hello, There',
-    'bad request': '400 Bad request'
+    'bad request': '400 Bad request',
+    'no coordinates': 'No coordinates provided'
 }
