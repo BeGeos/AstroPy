@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 import requests
+import re
 
 
 def sun_time_from_api(lat, lon):
-    """ Send API call to OpenWeatherAPI for sunrise and sunset time at location"""
+    """ Send API call to OpenWeatherAPI for sunrise and sunset time at location """
 
     url = 'https://api.openweathermap.org/data/2.5/weather?'
     api_key = 'b7adec848b0680cb9a2518e37b256861'
@@ -15,8 +16,9 @@ def sun_time_from_api(lat, lon):
     api_response = get_request.json()
 
     timezone = api_response['timezone']
-    sunrise = datetime.fromtimestamp(api_response['sys']['sunrise']) + timedelta(seconds=timezone)
-    sunset = datetime.fromtimestamp(api_response['sys']['sunset']) + timedelta(seconds=timezone)
+    sunrise = datetime.utcfromtimestamp(api_response['sys']['sunrise']) + timedelta(seconds=timezone)
+    # print(sunrise, '-- sunrise')
+    sunset = datetime.utcfromtimestamp(api_response['sys']['sunset']) + timedelta(seconds=timezone)
 
     sunrise = float(sunrise.strftime('%H.%M'))
     sunset = float(sunset.strftime('%H.%M'))
@@ -63,13 +65,15 @@ def star_rising_time(ra, sun_times: dict):
     if closest_delay > 1:
         star_rise = sunrise + closest_delay
     elif closest_delay < - 1:
-        star_rise = sunrise - closest_delay
+        star_rise = sunrise - abs(closest_delay)
         if star_rise < 0:
             star_rise += 24
     elif - 1 <= closest_delay <= 1:
         return 'This star is not observable now'
+    if star_rise == 24:
+        star_rise -= 24
     star_set = star_rise + 12
-    if star_set >= 0:
+    if star_set >= 24:
         star_set -= 24
 
     # TODO Calculate the available hours of darkness for observation
@@ -77,7 +81,7 @@ def star_rising_time(ra, sun_times: dict):
     star_span = [h for h in range(star_rise, star_set)]
 
     return {'star rise': star_rise, 'star set': star_set,
-            'day': day, 'star span': star_span}
+            'day': day, 'star span': star_span, 'closest delay': closest_delay}
 
 
 # TODO improve calculate position
@@ -101,3 +105,41 @@ def calculate_position(rise_time: int, utc: int):
     return f'It is {travelled_degrees}° from the east'
 
 
+# API call for coordinates from city name -- OpenCage Geocoding
+def geocoding_api(city):
+    url_geocoding = 'https://api.opencagedata.com/geocode/v1/json?'
+    api_key = '7f699ecdb5514666be0cee527b4680c7'
+    payload = {'q': city, 'key': api_key, 'limit': 1}
+    request = requests.get(url_geocoding, params=payload)
+    file = request.json()
+
+    output = {}
+
+    if file['results']:
+        output['lat'] = file['results'][0]['annotations']['DMS']['lat']
+        output['lon'] = file['results'][0]['annotations']['DMS']['lng']
+    else:
+        output = None
+
+    return output
+
+
+# Formatting of latitude and longitude
+def check_if_north(lat):
+    check_lat = re.findall('(.[0-9]*)°', lat)
+    if 'S' in lat:
+        result = '-' + str(*check_lat)
+        result = int(result)
+    else:
+        result = int(*check_lat)
+    return result
+
+
+def check_if_east(lon):
+    check_lon = re.findall('(.[0-9]*)°', lon)
+    if 'W' in lon:
+        result = '-' + str(*check_lon)
+        result = int(result)
+    else:
+        result = int(*check_lon)
+    return result
