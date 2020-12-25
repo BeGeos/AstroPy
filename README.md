@@ -6,8 +6,4 @@ with the most significant and important information about said constellation, na
 - Minimium and Maximum Latitude where that constellation can be seen
 - The main stars that comprise the constellation
 
-For now it is just a static file, however after building a database to back it up it could become an useful tool for a themed website, guided sky observation, etc.
-
-This is the plan anyway,
-
 @BeGeos
