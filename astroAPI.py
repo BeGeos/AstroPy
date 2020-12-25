@@ -128,7 +128,8 @@ def get_all_stars():
 def where_to_look():
     """ Parameters: [latitude as lat and longitude as lon, and the star to observe as s]
         Positive latitude indicates the Northern hemisphere, whereas negative
-        the Southern hemisphere """
+        the Southern hemisphere. Otherwise, if you don't have coordinates at hand
+        the city is also an option, use city=... """
 
     # where to look (declination - position)
     # right ascension == number of hours behind the Sun on 21st March
@@ -136,9 +137,26 @@ def where_to_look():
     if not request.args:
         return jsonify({'message': messages['no argument']})
 
+    response = {}
     s = request.args['s']
-    lat = request.args['lat']
-    lon = request.args['lon']
+    response['star'] = s
+    if 'lat' in request.args and 'lon' in request.args:
+        response['lat'] = request.args['lat']
+        response['lon'] = request.args['lon']
+        lat = int(request.args['lat'])
+        lon = int(request.args['lon'])
+    elif 'city' in request.args:
+        city = request.args['city']
+        coordinates = functions.geocoding_api(city)
+        if coordinates is None:
+            return jsonify({'message': f"{city} not found"})
+        response['lat'] = coordinates['lat']
+        response['lon'] = coordinates['lon']
+        lat = functions.check_if_north(coordinates['lat'])
+        lon = functions.check_if_east(coordinates['lon'])
+    else:
+        return jsonify({'message': messages['no coordinates']})
+
     try:
         star = Stars.query.filter_by(star=s).first()
     except exceptions.NotFound:
@@ -146,16 +164,11 @@ def where_to_look():
 
     declination = star.declination
     RA = star.right_ascension
+    response['declination'] = declination
+    response['right ascension'] = RA
     int_declination = int(declination[:3])
 
-    where = int_declination - int(lat)
-    response = {'star': s, 'declination': declination, 'RA': RA,
-                'lat': lat, 'lon': lon}
-
-    # Get the time of sunrise and sunset from API call
-    sun_time = functions.sun_time_from_api(lat, lon)
-    response['sunrise at location'] = sun_time['sunrise']
-    response['sunset at location'] = sun_time['sunset']
+    where = int_declination - lat
 
     if abs(where) > 90:
         response['where'] = f'{s} is not visible from your location'
@@ -167,18 +180,25 @@ def where_to_look():
     elif where > 0:
         response['where'] = f'{where}° towards north'
 
+    # Get the time of sunrise and sunset from API call
+    sun_time = functions.sun_time_from_api(lat, lon)
+    response['sunrise at location'] = sun_time['sunrise']
+    response['sunset at location'] = sun_time['sunset']
+
     # Check for circumpolar stars
-    if int(lat) + int_declination > 90 or int(lat) + int_declination < - 90:
+    if lat + int_declination > 90 or lat + int_declination < - 90:
         response['it rises'] = f'{s} is always visible from this location'
 
     else:
         star_time = functions.star_rising_time(int(RA[:2]), sun_time)
-        degrees = functions.calculate_position(star_time['star rise'], sun_time['utc'])
-
-        response['it rises'] = star_time['star rise']
-        response['it sets'] = star_time['star set']
-        response['current position'] = degrees
-
+        if 'star rise' in star_time:
+            degrees = functions.calculate_position(star_time['star rise'], sun_time['utc'])
+            response['current position'] = degrees
+            response['it rises'] = star_time['star rise']
+            response['it sets'] = star_time['star set']
+            # response['closest RA'] = star_time['closest delay']
+        else:
+            response['current position'] = star_time
     return jsonify(response)
 
 
