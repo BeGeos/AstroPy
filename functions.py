@@ -18,9 +18,11 @@ def sun_time_from_api(lat, lon):
     sunrise = datetime.fromtimestamp(api_response['sys']['sunrise']) + timedelta(seconds=timezone)
     sunset = datetime.fromtimestamp(api_response['sys']['sunset']) + timedelta(seconds=timezone)
 
-    sunrise = round(float(sunrise.strftime('%H.%M')), 2)
-    sunset = round(float(sunset.strftime('%H.%M')), 2)
-    return {'sunrise': sunrise, 'sunset': sunset}
+    sunrise = float(sunrise.strftime('%H.%M'))
+    sunset = float(sunset.strftime('%H.%M'))
+
+    return {'sunrise': sunrise, 'sunset': sunset,
+            'utc': timezone}
 
 
 def star_rising_time(ra, sun_times: dict):
@@ -29,8 +31,6 @@ def star_rising_time(ra, sun_times: dict):
     # From API call
     sunrise = int(sun_times['sunrise'])
     sunset = int(sun_times['sunset'])
-
-    day = [d for d in range(sunrise, sunset)]
 
     # Theory of right ascension
     time_of_year = {
@@ -55,36 +55,43 @@ def star_rising_time(ra, sun_times: dict):
     for k, v in time_of_year.items():
         delta = k - today
         if abs(delta) < base:
-            closest = time_of_year[k]
+            closest_delay = time_of_year[k]
             base = abs(delta)
 
     # Find the rise time of the star if it's lower than 1 it means the star rises and sets
     # along whit the Sun, therefore there is no time when it becomes observable
-    if closest > 1:
-        star_rise = sunrise + closest
-    elif closest < - 1:
-        star_rise = sunrise - closest
+    if closest_delay > 1:
+        star_rise = sunrise + closest_delay
+    elif closest_delay < - 1:
+        star_rise = sunrise - closest_delay
         if star_rise < 0:
-            star_rise = 24 + star_rise
-    elif - 1 <= closest <= 1:
+            star_rise += 24
+    elif - 1 <= closest_delay <= 1:
         return 'This star is not observable now'
-    return star_rise
+    star_set = star_rise + 12
+    if star_set >= 0:
+        star_set -= 24
+
+    # TODO Calculate the available hours of darkness for observation
+    day = [d for d in range(sunrise, sunset)]
+    star_span = [h for h in range(star_rise, star_set)]
+
+    return {'star rise': star_rise, 'star set': star_set,
+            'day': day, 'star span': star_span}
 
 
 # TODO improve calculate position
-def calculate_position(rise_time):
+def calculate_position(rise_time: int, utc: int):
     # Circle divided 24h
     step = 360 / 24
 
     # Comparison between now and the time the star has risen
-    now = datetime.now()
-    int_now = int(now.strftime('%H'))
+    now = datetime.utcnow() + timedelta(seconds=utc)
+    rise_dt = datetime(2020, 3, 21, rise_time, 0, 0)
 
-    # if rise_time > int_now:
-    #     return 'Not risen yet'
-
-    time_passed = abs(int_now - rise_time)
-    travelled_degrees = time_passed * step
+    delta_t = now - rise_dt
+    hours_passed = int(delta_t.seconds / 3600)
+    travelled_degrees = hours_passed * step
 
     if 180 <= travelled_degrees < 360:
         return 'It has already set'
