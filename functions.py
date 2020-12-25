@@ -95,7 +95,7 @@ def calculate_position(rise_time: int, utc: int):
 
     if 180 <= travelled_degrees < 360:
         return 'It has already set'
-    if travelled_degrees == 360:
+    if travelled_degrees == 360 or travelled_degrees == 0:
         return "It's rising now"
 
     return f'It is {travelled_degrees}° from the east'
