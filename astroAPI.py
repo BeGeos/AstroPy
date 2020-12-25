@@ -126,10 +126,12 @@ def get_all_stars():
 
 @app.route('/astropy/api/v1/where-to-look')
 def where_to_look():
-    # where to look (declination - position)
     """ Parameters: [latitude as lat and longitude as lon, and the star to observe as s]
         Positive latitude indicates the Northern hemisphere, whereas negative
         the Southern hemisphere """
+
+    # where to look (declination - position)
+    # right ascension == number of hours behind the Sun on 21st March
 
     if not request.args:
         return jsonify({'message': messages['no argument']})
@@ -149,8 +151,15 @@ def where_to_look():
     where = int_declination - int(lat)
     response = {'star': s, 'declination': declination, 'RA': RA,
                 'lat': lat, 'lon': lon}
+
+    # Get the time of sunrise and sunset from API call
+    sun_time = functions.sun_time_from_api(lat, lon)
+    response['sunrise at location'] = sun_time['sunrise']
+    response['sunset at location'] = sun_time['sunset']
+
     if abs(where) > 90:
         response['where'] = f'{s} is not visible from your location'
+        return response
     elif - 2 < where < + 2:
         response['where'] = 'just look over your head'
     elif where < 0:
@@ -158,26 +167,19 @@ def where_to_look():
     elif where > 0:
         response['where'] = f'{where}° towards north'
 
-    # Get the time of sunrise and sunset from API call
-    sun_time = functions.sun_time_from_api(lat, lon)
-    response['sunrise at location'] = sun_time['sunrise']
-    response['sunset at location'] = sun_time['sunset']
-
     # Check for circumpolar stars
     if int(lat) + int_declination > 90 or int(lat) + int_declination < - 90:
         response['it rises'] = f'{s} is always visible from this location'
 
     else:
         star_time = functions.star_rising_time(int(RA[:2]), sun_time)
-        degrees = functions.calculate_position(star_time['star rise'])
+        degrees = functions.calculate_position(star_time['star rise'], sun_time['utc'])
 
         response['it rises'] = star_time['star rise']
         response['it sets'] = star_time['star set']
-        # TODO response['current position'] = degrees
+        response['current position'] = degrees
 
     return jsonify(response)
-
-# right ascension == number of hours behind the Sun on 21st March
 
 
 @app.route('/astropy/api/v1/star/closest/<int:limit>')
