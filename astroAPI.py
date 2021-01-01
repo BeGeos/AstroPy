@@ -25,6 +25,8 @@ def home():
 
 @app.route('/hello', methods=['GET'])
 def greetings():
+    """Greeting message to the user, insert first and last name in the query
+    URL and you will receive a small greeting message"""
     if not request.args:
         return jsonify({'message': messages['hello']}), 204
 
@@ -35,6 +37,8 @@ def greetings():
 
 @app.route('/astropy/api/v1/constellation', methods=['GET'])
 def get_constellation():
+    """Main path to make get requests for constellations.
+    It takes the c parameter only."""
     if not request.args:
         return jsonify({'message': messages['no argument']}), 400
 
@@ -51,7 +55,8 @@ def get_constellation():
 
 @app.route('/astropy/api/v1/query', methods=['GET'])
 def get_constellations_via_query():
-    """ Parameters accepted: [quadrant as q, min_latitude as min, max_latitude as max] """
+    """It allows flexibility upon constellation lookups. As a simple db search.
+    Parameters accepted: [quadrant as q, min latitude as min, max latitude as max]"""
 
     if not request.args:
         return jsonify({'message': messages['no argument']}), 400
@@ -101,6 +106,7 @@ def get_constellations_via_query():
 
 @app.route('/astropy/api/v1/constellation/all')
 def get_all_constellations():
+    """Route that yields all the constellations: FYI there are 88"""
     _all = Constellation.query.all()
     output = constellations_schema.dump(_all)
     return jsonify({'constellations': output}), 200
@@ -108,6 +114,7 @@ def get_all_constellations():
 
 @app.route('/astropy/api/v1/star')
 def get_star():
+    """Route to get single stars from the query, only parameter as s accepted"""
     if not request.args:
         return jsonify({'message': messages['no argument']}), 400
 
@@ -120,6 +127,9 @@ def get_star():
 
 @app.route('/astropy/api/v1/star/all')
 def get_all_stars():
+    """It returns all the stars of all the constellations. They are in the range
+    between 450-650, the real count would be way higher, but it considers
+    the main and most visible stars of the constellation"""
     _all = Stars.query.all()
     output = multiple_stars_schema.dump(_all)
 
@@ -131,7 +141,7 @@ def get_all_stars():
 @app.route('/astropy/api/v1/where-to-look')
 def where_to_look():
     """ Parameters: [latitude as lat and longitude as lon, and the star to observe as s]
-        Positive latitude indicates the Northern hemisphere, whereas negative
+        Positive latitude indicates the Northern hemisphere, whereas negative points to
         the Southern hemisphere. Otherwise, if you don't have coordinates at hand
         the city is also an option, use city=... """
 
@@ -208,6 +218,9 @@ def where_to_look():
 
 @app.route('/astropy/api/v1/star/closest/<int:limit>')
 def closest(limit):
+    """Simple route to get the closest stars in the system, the integer is part
+    of the route and it indicates the limit of results the search will yield.
+    By default it is set to a max of 25 results, and a min of 5"""
     if limit <= 0:
         limit = 5
     elif limit > 25:
@@ -221,6 +234,9 @@ def closest(limit):
 
 @app.route('/astropy/api/v1/star/brightest/<int:limit>')
 def brightest(limit):
+    """Simple route to get the brightest stars in the system, the integer is part
+    of the route and it indicates the limit of results the search will yield.
+    By default it is set to a max of 25 results, and a min of 5"""
     if limit <= 0:
         limit = 5
     elif limit > 25:
