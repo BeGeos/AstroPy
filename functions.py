@@ -7,7 +7,7 @@ def sun_time_from_api(lat, lon):
     """ Send API call to OpenWeatherAPI for sunrise and sunset time at location """
 
     url = 'https://api.openweathermap.org/data/2.5/weather?'
-    api_key = 'b7adec848b0680cb9a2518e37b256861'
+    api_key = ''
     payload = {'lat': lat, 'lon': lon, 'appid': api_key}
     get_request = requests.get(url, params=payload)
     if get_request.status_code != 200:
@@ -108,7 +108,7 @@ def calculate_position(rise_time: int, utc: int):
 # API call for coordinates from city name -- OpenCage Geocoding
 def geocoding_api(city):
     url_geocoding = 'https://api.opencagedata.com/geocode/v1/json?'
-    api_key = '7f699ecdb5514666be0cee527b4680c7'
+    api_key = ''
     payload = {'q': city, 'key': api_key, 'limit': 1}
     request = requests.get(url_geocoding, params=payload)
     file = request.json()
