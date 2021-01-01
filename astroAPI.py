@@ -3,6 +3,7 @@ from flask import request, jsonify
 from models import Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
 from messages import messages
 from werkzeug import exceptions
+from flask_cors import CORS
 import functions
 
 # Schema init
@@ -11,6 +12,9 @@ constellations_schema = ConstellationSchema(many=True)
 
 single_star_schema = SingleStarSchema()
 multiple_stars_schema = SingleStarSchema(many=True)
+
+# CORS handling
+CORS(app)
 
 
 # API logic
@@ -22,27 +26,27 @@ def home():
 @app.route('/hello', methods=['GET'])
 def greetings():
     if not request.args:
-        return jsonify({'message': messages['hello']})
+        return jsonify({'message': messages['hello']}), 204
 
     response = {'Hello, There': [request.args['name'],
                                  request.args['last']]}
-    return jsonify(response)
+    return jsonify(response), 200
 
 
 @app.route('/astropy/api/v1/constellation', methods=['GET'])
 def get_constellation():
     if not request.args:
-        return jsonify({'message': messages['no argument']})
+        return jsonify({'message': messages['no argument']}), 400
 
     try:
         c = request.args['c']
     except exceptions.BadRequestKeyError:
-        return jsonify({'message': messages['bad request']})
+        return jsonify({'message': messages['bad request']}), 400
 
     query_result = Constellation.query.filter_by(name=c).first_or_404()
     output = constellation_schema.dump(query_result)
 
-    return jsonify({'constellation': output})
+    return jsonify({'constellation': output}), 200
 
 
 @app.route('/astropy/api/v1/query', methods=['GET'])
@@ -50,7 +54,7 @@ def get_constellations_via_query():
     """ Parameters accepted: [quadrant as q, min_latitude as min, max_latitude as max] """
 
     if not request.args:
-        return jsonify({'message': messages['no argument']})
+        return jsonify({'message': messages['no argument']}), 400
 
     if 'q' in request.args and 'min' in request.args and 'max' in request.args:
         obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
@@ -88,30 +92,30 @@ def get_constellations_via_query():
                                                       max_latitude=request.args['max'])
 
     if obj_query is None or len(obj_query.all()) == 0:
-        output = {'message': messages['not found']}
+        return jsonify({'message': messages['not found']}), 204
     else:
         output = constellations_schema.dump(obj_query)
 
-    return jsonify({'constellation': output})
+    return jsonify({'constellation': output}), 200
 
 
 @app.route('/astropy/api/v1/constellation/all')
 def get_all_constellations():
     _all = Constellation.query.all()
     output = constellations_schema.dump(_all)
-    return jsonify({'constellations': output})
+    return jsonify({'constellations': output}), 200
 
 
 @app.route('/astropy/api/v1/star')
 def get_star():
     if not request.args:
-        return jsonify({'message': messages['no argument']})
+        return jsonify({'message': messages['no argument']}), 400
 
     s = request.args['s']
     query_result = Stars.query.filter_by(star=s).first_or_404()
     output = single_star_schema.dump(query_result)
 
-    return jsonify({'star': output})
+    return jsonify({'star': output}), 200
 
 
 @app.route('/astropy/api/v1/star/all')
@@ -119,7 +123,7 @@ def get_all_stars():
     _all = Stars.query.all()
     output = multiple_stars_schema.dump(_all)
 
-    return jsonify({'stars': output})
+    return jsonify({'stars': output}), 200
 
 
 # TODO get stars via query -- distance only
@@ -135,7 +139,7 @@ def where_to_look():
     # right ascension == number of hours behind the Sun on 21st March
 
     if not request.args:
-        return jsonify({'message': messages['no argument']})
+        return jsonify({'message': messages['no argument']}), 400
 
     response = {}
     s = request.args['s']
@@ -149,18 +153,18 @@ def where_to_look():
         city = request.args['city']
         coordinates = functions.geocoding_api(city)
         if coordinates is None:
-            return jsonify({'message': f"{city} not found"})
+            return jsonify({'message': f"{city} not found"}), 204
         response['lat'] = coordinates['lat']
         response['lon'] = coordinates['lon']
         lat = functions.check_if_north(coordinates['lat'])
         lon = functions.check_if_east(coordinates['lon'])
     else:
-        return jsonify({'message': messages['no coordinates']})
+        return jsonify({'message': messages['no coordinates']}), 400
 
     try:
         star = Stars.query.filter_by(star=s).first()
     except exceptions.NotFound:
-        return jsonify({'message': messages['not found']})
+        return jsonify({'message': messages['not found']}), 204
 
     declination = star.declination
     RA = star.right_ascension
@@ -172,7 +176,7 @@ def where_to_look():
 
     if abs(where) > 90:
         response['where'] = f'{s} is not visible from your location'
-        return response
+        return jsonify(response), 200
     elif - 2 < where < + 2:
         response['where'] = 'just look over your head'
     elif where < 0:
@@ -199,7 +203,7 @@ def where_to_look():
             # response['closest RA'] = star_time['closest delay']
         else:
             response['current position'] = star_time
-    return jsonify(response)
+    return jsonify(response), 200
 
 
 @app.route('/astropy/api/v1/star/closest/<int:limit>')
@@ -212,7 +216,7 @@ def closest(limit):
     _closest = Stars.query.order_by('distance').limit(limit)
     output = multiple_stars_schema.dump(_closest)
 
-    return jsonify(output)
+    return jsonify(output), 200
 
 
 @app.route('/astropy/api/v1/star/brightest/<int:limit>')
@@ -225,7 +229,7 @@ def brightest(limit):
     _brightest = Stars.query.order_by('app_magnitude').limit(limit)
     output = multiple_stars_schema.dump(_brightest)
 
-    return jsonify(output)
+    return jsonify(output), 200
 
 
 if __name__ == '__main__':
