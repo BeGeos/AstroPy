@@ -1,6 +1,33 @@
 from datetime import datetime, timedelta
+from models import User, AuthKeys
 import requests
 import re
+import string
+import random
+
+
+# Api Token generator
+def key_generator(num=24):
+    alphanumeric = string.ascii_letters + string.digits
+    key = ''
+    for _ in range(num):
+        key += random.choice(alphanumeric)
+    return key
+
+
+# Check for user authentication credentials
+def is_username_available(username):
+    user = User.query.filter_by(username=username).first()
+    if user:
+        return False
+    return True
+
+
+def is_email_available(email):
+    _email = User.query.filter_by(email=email).first()
+    if _email:
+        return False
+    return True
 
 
 def sun_time_from_api(lat, lon):
