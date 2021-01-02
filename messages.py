@@ -6,5 +6,8 @@ messages = {
     'not found': 'No record found',
     'hello': 'Hello, There',
     'bad request': '400 Bad request',
-    'no coordinates': 'No coordinates provided'
+    'no coordinates': 'No coordinates provided',
+    'invalid password': 'Invalid password',
+    'invalid user': 'Invalid user',
+    'required arguments': 'Required arguments not provided'
 }
