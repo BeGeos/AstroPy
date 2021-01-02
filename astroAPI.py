@@ -1,10 +1,12 @@
 from __init__ import app
 from flask import request, jsonify
-from models import Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
+from models import db, Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
+from models import User, AuthKeys
 from messages import messages
 from werkzeug import exceptions
 from flask_cors import CORS
 import functions
+from datetime import datetime, timedelta
 
 # Schema init
 constellation_schema = ConstellationSchema()
@@ -35,6 +37,58 @@ def greetings():
     return jsonify(response), 200
 
 
+# Main routes to create a user and an authentication key to be used in API calls
+@app.route('/astropy/api/v1/create-user', methods=['POST'])
+def create_user():
+    """To create a user send a post request with username, password and a valid email address"""
+    if request.method == 'POST':
+        username = request.get_json()['username']
+        if not functions.is_username_available(username):
+            return jsonify({'message': f'{username} already exists'}), 204
+        password = request.get_json()['password']
+        email = request.get_json()['email']
+        if not functions.is_email_available(email):
+            return jsonify({'message': f'{email} already exists'}), 204
+        new_user = User(username=username, password=password, email=email)
+        db.session.add(new_user)
+        db.session.commit()
+        # TODO send confirmation email (function)
+        return jsonify({'message': f'{new_user} was created successfully!',
+                        'information': 'to request an api key make a post request to /create-auth-key'
+                                       ', specify a username and a valid password'})
+
+
+@app.route('/astropy/api/v1/create-auth-key', methods=['POST'])
+def create_auth_key():
+    """The post request must include the username and a valid password.
+     It returns an api key to use for requests, as well as the expiration
+     date in seconds since epoch"""
+    if request.method == 'POST':
+        user = request.get_json()['username']
+        current_user = User.query.filter_by(username=user).first()
+        if not current_user:
+            return jsonify({'message': messages['invalid user']}), 404
+        password = request.get_json()['password']
+        if password != current_user.password:
+            return jsonify({'message': messages['invalid password']}), 403
+    uid = current_user.id
+
+    key = functions.key_generator()
+    exp = datetime.utcnow() + timedelta(seconds=3600)
+    try:
+        new_key = AuthKeys(user_id=uid, key=key, expiration_date=exp.timestamp())
+        db.session.add(new_key)
+        db.session.commit()
+    except exceptions:
+        return jsonify({'message': 'Something went wrong'}), 204
+
+    return jsonify({'id': new_key.id,
+                    'user': str(new_key.user),
+                    'api key': new_key.key,
+                    'expiration date': new_key.expiration_date})
+
+
+# Main API routes for constellations, stars and TODO planets
 @app.route('/astropy/api/v1/constellation', methods=['GET'])
 def get_constellation():
     """Main path to make get requests for constellations.
