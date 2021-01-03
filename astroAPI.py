@@ -6,6 +6,7 @@ from messages import messages
 from werkzeug import exceptions
 from flask_cors import CORS
 import functions
+from wrappers import auth_key_required
 from datetime import datetime, timedelta
 
 # Schema init
@@ -49,7 +50,8 @@ def create_user():
         email = request.get_json()['email']
         if not functions.is_email_available(email):
             return jsonify({'message': f'{email} already exists'}), 204
-        new_user = User(username=username, password=password, email=email)
+        new_user = User(username=username, password=password,
+                        email=email, date_created=datetime.utcnow())
         db.session.add(new_user)
         db.session.commit()
         # TODO send confirmation email (function)
@@ -67,7 +69,7 @@ def create_auth_key():
         user = request.get_json()['username']
         current_user = User.query.filter_by(username=user).first()
         if not current_user:
-            return jsonify({'message': messages['invalid user']}), 404
+            return jsonify({'message': messages['invalid user']}), 401
         password = request.get_json()['password']
         if password != current_user.password:
             return jsonify({'message': messages['invalid password']}), 403
@@ -76,7 +78,7 @@ def create_auth_key():
     key = functions.key_generator()
     exp = datetime.utcnow() + timedelta(seconds=3600)
     try:
-        new_key = AuthKeys(user_id=uid, key=key, expiration_date=exp.timestamp())
+        new_key = AuthKeys(user_id=uid, key=key, expiration_date=int(exp.timestamp()))
         db.session.add(new_key)
         db.session.commit()
     except exceptions:
@@ -90,6 +92,7 @@ def create_auth_key():
 
 # Main API routes for constellations, stars and TODO planets
 @app.route('/astropy/api/v1/constellation', methods=['GET'])
+@auth_key_required
 def get_constellation():
     """Main path to make get requests for constellations.
     It takes the c parameter only."""
@@ -108,6 +111,7 @@ def get_constellation():
 
 
 @app.route('/astropy/api/v1/query', methods=['GET'])
+@auth_key_required
 def get_constellations_via_query():
     """It allows flexibility upon constellation lookups. As a simple db search.
     Parameters accepted: [quadrant as q, min latitude as min, max latitude as max]"""
@@ -159,6 +163,7 @@ def get_constellations_via_query():
 
 
 @app.route('/astropy/api/v1/constellation/all')
+@auth_key_required
 def get_all_constellations():
     """Route that yields all the constellations: FYI there are 88"""
     _all = Constellation.query.all()
@@ -167,6 +172,7 @@ def get_all_constellations():
 
 
 @app.route('/astropy/api/v1/star')
+@auth_key_required
 def get_star():
     """Route to get single stars from the query, only parameter as s accepted"""
     if not request.args:
@@ -180,6 +186,7 @@ def get_star():
 
 
 @app.route('/astropy/api/v1/star/all')
+@auth_key_required
 def get_all_stars():
     """It returns all the stars of all the constellations. They are in the range
     between 450-650, the real count would be way higher, but it considers
@@ -193,6 +200,7 @@ def get_all_stars():
 # TODO get stars via query -- distance only
 
 @app.route('/astropy/api/v1/where-to-look')
+@auth_key_required
 def where_to_look():
     """ Parameters: [latitude as lat and longitude as lon, and the star to observe as s]
         Positive latitude indicates the Northern hemisphere, whereas negative points to
@@ -271,6 +279,7 @@ def where_to_look():
 
 
 @app.route('/astropy/api/v1/star/closest/<int:limit>')
+@auth_key_required
 def closest(limit):
     """Simple route to get the closest stars in the system, the integer is part
     of the route and it indicates the limit of results the search will yield.
@@ -287,6 +296,7 @@ def closest(limit):
 
 
 @app.route('/astropy/api/v1/star/brightest/<int:limit>')
+@auth_key_required
 def brightest(limit):
     """Simple route to get the brightest stars in the system, the integer is part
     of the route and it indicates the limit of results the search will yield.
