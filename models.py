@@ -52,7 +52,7 @@ class User(db.Model):
     password = db.Column(db.String(128))
     calls = db.Column(db.Integer, default=1000)
     auth_key = db.relationship('AuthKeys', backref='user', lazy=True, uselist=False)
-    date_created = db.Column(db.Datefield, default=datetime.utcnow())
+    date_created = db.Column(db.DateTime)
 
     def __repr__(self):
         return self.username
