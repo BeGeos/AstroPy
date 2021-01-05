@@ -1,7 +1,7 @@
 from __init__ import app
 from flask import request, jsonify
 from models import db, Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
-from models import User, AuthKeys
+from models import User, AuthKeys, SecurityCodes, Recovery
 from messages import messages
 from werkzeug import exceptions
 from flask_cors import CORS
@@ -42,22 +42,28 @@ def greetings():
 @app.route('/astropy/api/v1/create-user', methods=['POST'])
 def create_user():
     """To create a user send a post request with username, password and a valid email address"""
-    if request.method == 'POST':
-        username = request.get_json()['username']
-        if not functions.is_username_available(username):
-            return jsonify({'message': f'{username} already exists'}), 204
-        password = request.get_json()['password']
-        email = request.get_json()['email']
-        if not functions.is_email_available(email):
-            return jsonify({'message': f'{email} already exists'}), 204
-        new_user = User(username=username, password=password,
+
+    username = request.get_json()['username']
+    if not functions.is_username_available(username):
+        return jsonify({'message': f'{username} already exists'}), 204
+    password = request.get_json()['password']
+    email = request.get_json()['email']
+    if not functions.is_email_available(email):
+        return jsonify({'message': f'{email} already exists'}), 204
+    new_user = User(username=username, password=password,
                         email=email, date_created=datetime.utcnow())
-        db.session.add(new_user)
-        db.session.commit()
-        # TODO send confirmation email (function)
-        return jsonify({'message': f'{new_user} was created successfully!',
-                        'information': 'to request an api key make a post request to /create-auth-key'
-                                       ', specify a username and a valid password'})
+    db.session.add(new_user)
+    db.session.commit()
+    security_code = functions.code_generator()
+    exp = datetime.utcnow() + timedelta(seconds=600)
+    user_sc = SecurityCodes(user_id=new_user.id, code=security_code, expiration=int(exp.timestamp()))
+    db.session.add(user_sc)
+    db.session.commit()
+    # TODO send confirmation email (function)
+    return jsonify({'message': f'{new_user} was created successfully!',
+                    'information': 'to request an api key make a post request to /create-auth-key'
+                                   ', specify a username and a valid password',
+                    'next step': 'Check your email for the verification process'})
 
 
 @app.route('/astropy/api/v1/create-auth-key', methods=['POST'])
@@ -65,14 +71,16 @@ def create_auth_key():
     """The post request must include the username and a valid password.
      It returns an api key to use for requests, as well as the expiration
      date in seconds since epoch"""
-    if request.method == 'POST':
-        user = request.get_json()['username']
-        current_user = User.query.filter_by(username=user).first()
-        if not current_user:
-            return jsonify({'message': messages['invalid user']}), 401
-        password = request.get_json()['password']
-        if password != current_user.password:
-            return jsonify({'message': messages['invalid password']}), 403
+
+    user = request.get_json()['username']
+    current_user = User.query.filter_by(username=user).first()
+    if not current_user:
+        return jsonify({'message': messages['invalid user']}), 401
+    password = request.get_json()['password']
+    if password != current_user.password:
+        return jsonify({'message': messages['invalid password']}), 403
+    if not current_user.confirmed:
+        return jsonify({'message': 'User is not confirmed'})
     uid = current_user.id
 
     key = functions.key_generator()
@@ -88,6 +96,64 @@ def create_auth_key():
                     'user': str(new_key.user),
                     'api key': new_key.key,
                     'expiration date': new_key.expiration_date})
+
+
+# Verification route
+@app.route('/astropy/api/v1/verification', methods=['POST'])
+def verification():
+    # verification method which goes in the wrapper
+    username = request.get_json()['username']
+    six_digit_code = request.get_json()['security code']
+
+    # Verify it exists, it belongs to that username, it hasn't expired
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'Invalid username'}), 401
+    # User has 5 attempts for the code -- security issues
+    if user.attempts == 0:
+        return jsonify({'message': 'No more attempts left, you must wait'}), 401
+    user.attempts -= 1
+    db.session.commit()
+    if user.security_code is None:
+        return jsonify({'message': 'Security code does not exist'}), 401
+    if user.security_code.code != six_digit_code:
+        return jsonify({'message': 'Invalid security code'}), 401
+
+    record = SecurityCodes.query.filter_by(user_id=user.id).first()
+    if record.expiration < datetime.utcnow().timestamp():
+        db.session.delete(record)
+        db.session.commit()
+        return jsonify({'message': 'Security code has expired'})
+
+    user.confirmed = True
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'message': f'{username} has been confirmed'}), 200
+
+
+# New 6-digit-code request
+@app.route('/astropy/api/v1/new-code-request', methods=['POST'])
+def new_code_request():
+    username = request.get_json()['username']
+    password = request.get_json()['password']
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'Invalid username'}), 401
+    if password != user.password:
+        return jsonify({'message': 'Invalid password'}), 401
+    security_code = functions.code_generator()
+    exp = datetime.utcnow() + timedelta(seconds=600)
+
+    if user.security_code is not None:
+        record = SecurityCodes.query.filter_by(user_id=user.id).first()
+        db.session.delete(record)
+        db.session.commit()
+
+    user_sc = SecurityCodes(user_id=user.id, code=security_code, expiration=int(exp.timestamp()))
+    db.session.add(user_sc)
+    db.session.commit()
+    # send email with security code
+    return jsonify({'message': 'Code sent correctly, check your email'}), 200
 
 
 # Main API routes for constellations, stars and TODO planets
