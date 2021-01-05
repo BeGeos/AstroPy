@@ -10,9 +10,18 @@ import random
 def key_generator(num=24):
     alphanumeric = string.ascii_letters + string.digits
     key = ''
-    for _ in range(num):
+    for _ in range(1, num + 1):
         key += random.choice(alphanumeric)
     return key
+
+
+# Security code generator
+def code_generator(num=6):
+    numbers = string.digits
+    code = ''
+    for _ in range(1, num + 1):
+        code += random.choice(numbers)
+    return int(code)
 
 
 # Check for user authentication credentials
