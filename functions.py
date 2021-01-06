@@ -5,7 +5,7 @@ import re
 import string
 import random
 import smtplib
-from email.message import EmailMessage
+from messages import ReplyMessage
 
 # Email smtp setup for sending emails [environment variables]
 EMAIL_ADDRESS = 'YOUR_EMAIL_ADDRESS'
@@ -49,52 +49,24 @@ def is_username_available(username):
 
 # Send email with security code
 def email_security_code(username, email, security_code):
+    """Send a reply with the verification code to the user"""
+    reply = ReplyMessage(EMAIL_ADDRESS, email, username, security_code)
+    body = reply.verification_msg()
 
-    msg = EmailMessage()
-    msg['Subject'] = '[AstroPy] - Please confirm you email address'
-    msg['From'] = EMAIL_ADDRESS
-    msg['To'] = email
-    msg.set_content(f"""Hey {username}!\n 
-Thank you for signing up. 
-To complete the procedure and finally get to use this API, send a post request to the link below, and make sure 
-to include in the body your username and the security code\n\n
-Link: http://localhost:5000/astropy/api/v1/verification
-Security code: {security_code}\n\n
-This code will be active for 10 minutes, after that you can request a new one at the following link\n
-http://localhost:5000/astropy/api/v1/new-code-request\n
-In that case send a post request specifying in the body your username and password, a new email like this 
-one will be sent promptly with a new security code.\n\n
-If you did not send this request to sign up, your email address might have been used illicitly.\n\n
-Thank you very much for your cooperation and support. I am extremely grateful that you decided to use this 
-service. I hope you find it useful and it can enhance your astronomical observation experience.\n\n
-\n\nThanks,\n@BeGeos - AstroPy""")
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-
-        smtp.send_message(msg)
+        smtp.send_message(body)
 
 
 # Send email for recover password link
 def email_recovery_password(username, email, recovery_link):
-    msg = EmailMessage()
-    msg['Subject'] = '[AstroPy] - Password recovery request'
-    msg['From'] = EMAIL_ADDRESS
-    msg['To'] = email
-    msg.set_content(f"""Hey {username}!\n  
-It seems like somebody made a request to recover/change your password.
-If you want to update the password send a post request to the link below. In the body of your request, 
-include your username and the new password.\n\n
-Link: {recovery_link}\n
-This link will be active for 24 hours, after that you can request a new one at the following link
-http://localhost:5000/astropy/api/v1/recovery\nand follow the steps for recovering your password.\n
-In case you did not send any request but still received this message, your username and email were used illicitly.
-\nYou could either skip this message or if you were worried about security issues contact this link\n
-http://localhost/astropy/security
-\n\nThanks,\n@BeGeos - AstroPy""")
+    """Send a reply with the recovery link to the user for a new password"""
+    reply = ReplyMessage(EMAIL_ADDRESS, email, username, recovery_link=recovery_link)
+    body = reply.recovery_msg()
+
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-
-        smtp.send_message(msg)
+        smtp.send_message(body)
 
 
 def is_email_available(email):
