@@ -51,7 +51,7 @@ def create_user():
     if not functions.is_email_available(email):
         return jsonify({'message': f'{email} already exists'}), 204
     new_user = User(username=username, password=password,
-                        email=email, date_created=datetime.utcnow())
+                    email=email, date_created=datetime.utcnow())
     db.session.add(new_user)
     db.session.commit()
     security_code = functions.code_generator()
@@ -61,8 +61,9 @@ def create_user():
     db.session.commit()
     # TODO send confirmation email (function)
     return jsonify({'message': f'{new_user} was created successfully!',
-                    'information': 'to request an api key make a post request to /create-auth-key'
-                                   ', specify a username and a valid password',
+                    'information': 'To request an api key make a post request to /create-auth-key'
+                                   ', specify a username and a valid password. But before, '
+                                   'make sure to verify your email address',
                     'next step': 'Check your email for the verification process'})
 
 
@@ -101,7 +102,8 @@ def create_auth_key():
 # Verification route
 @app.route('/astropy/api/v1/verification', methods=['POST'])
 def verification():
-    # verification method which goes in the wrapper
+    """Verification route for users. It takes a post request with the username
+    and the security code available, sent via email"""
     username = request.get_json()['username']
     six_digit_code = request.get_json()['security code']
 
@@ -134,6 +136,8 @@ def verification():
 # New 6-digit-code request
 @app.route('/astropy/api/v1/new-code-request', methods=['POST'])
 def new_code_request():
+    """Backup for a new code in case the previous one was lost, expired or
+    server didn't send it due to random errors"""
     username = request.get_json()['username']
     password = request.get_json()['password']
     user = User.query.filter_by(username=username).first()
@@ -152,8 +156,56 @@ def new_code_request():
     user_sc = SecurityCodes(user_id=user.id, code=security_code, expiration=int(exp.timestamp()))
     db.session.add(user_sc)
     db.session.commit()
-    # send email with security code
+    # TODO send email with security code
     return jsonify({'message': 'Code sent correctly, check your email'}), 200
+
+
+# Password Recovery
+@app.route('/astropy/api/v1/recovery', methods=['POST'])
+def recovery_request():
+    """In case user lost his/her password, or wants to change it.
+    Send a post request via json to the URL with username and email address"""
+    username = request.get_json()['username']
+    _email = request.get_json()['email']
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'Invalid username'}), 401
+    if not user.confirmed:
+        return jsonify({'message': 'User not confirmed'}), 401
+    if user.email != _email:
+        return jsonify({'message': 'Request not accepted'}), 404
+    base_url = 'http://localhost:5000/recovery/'
+    extension = functions.ext_generator()
+    expire_on = datetime.utcnow() + timedelta(days=1)
+    recovery_link = Recovery(user_id=user.id, url_extension=extension,
+                             exp_date=int(expire_on.timestamp()))
+    db.session.add(recovery_link)
+    db.session.commit()
+    link = base_url + extension
+    # send link to _email
+    return jsonify({'message': 'Request accepted, check your email'})
+
+
+@app.route('/astropy/api/v1/recovery/<slug>', methods=['POST'])
+def password_recovery(slug):
+    recovery_code = Recovery.query.filter_by(url_extension=slug).first()
+    if not recovery_code:
+        return jsonify({'message': 'Invalid URL'}), 404
+    if recovery_code.exp_date < datetime.utcnow().timestamp():
+        return jsonify({'message': 'This link has expired'})
+
+    username = request.get_json()['username']
+    new_password = request.get_json()['new password']
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'Invalid user'}), 401
+    if recovery_code.user_id != user.id:
+        return jsonify({'message': 'Invalid code'}), 401
+
+    user.password = new_password
+    db.session.delete(recovery_code)
+    db.session.commit()
+    return jsonify({'message': 'Password changed successfully!'}), 200
 
 
 # Main API routes for constellations, stars and TODO planets
