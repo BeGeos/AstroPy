@@ -24,6 +24,15 @@ def code_generator(num=6):
     return int(code)
 
 
+# URL extension generator
+def ext_generator(num=24):
+    alphabet = string.ascii_letters
+    extension = ''
+    for _ in range(1, num + 1):
+        extension += random.choice(alphabet)
+    return extension
+
+
 # Check for user authentication credentials
 def is_username_available(username):
     user = User.query.filter_by(username=username).first()
