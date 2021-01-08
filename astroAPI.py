@@ -47,6 +47,9 @@ def create_user():
     if not functions.is_username_available(username):
         return jsonify({'message': f'{username} already exists'}), 400
     password = request.get_json()['password']
+    if not functions.is_password_valid(password):
+        return jsonify({'message': "Invalid password, it must be at least 4 characters long "
+                                   "and remember, it's for your own good"}), 400
     email = request.get_json()['email']
     # TODO API check for valid email address
     if not functions.is_email_available(email):
@@ -66,7 +69,11 @@ def create_user():
                     'information': 'To request an api key make a post request to /create-auth-key'
                                    ', specify a username and a valid password. But before, '
                                    'make sure to verify your email address',
-                    'next step': 'Check your email for the verification process'}), 201
+                    'next step': 'Check your email for the verification process',
+                    'recovery': 'If you want to recover/change your password go to /astropy/api/v1/recovery'
+                                '\nTo recover/change you email address go to /astropy/api/v1/recover-email\n'
+                                'send post requests following the instructions provided in the documentation at '
+                                '/astropy/api/documentation'}), 201
 
 
 @app.route('/astropy/api/v1/create-auth-key', methods=['POST'])
@@ -208,6 +215,38 @@ def password_recovery(slug):
     db.session.delete(recovery_code)
     db.session.commit()
     return jsonify({'message': 'Password changed successfully!'}), 202
+
+
+@app.route('/astropy/api/v1/recover-email', methods=['POST'])
+def email_recovery():
+    """Send a post request with username, password and the new or correct email address"""
+    username = request.get_json()['username']
+    password = request.get_json()['password']
+    _email = request.get_json()['new email']
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'Invalid username'}), 401
+    if user.password != password:
+        return jsonify({'message': 'Invalid password'}), 401
+    if not functions.is_email_available(_email):
+        return jsonify({'message': f'{_email} already exists'}), 400
+    if user.confirmed:
+        user.confirmed = False
+        db.session.commit()
+    if user.security_code is not None:
+        record = SecurityCodes.query.filter_by(user_id=user.id).first()
+        db.session.delete(record)
+        db.session.commit()
+    user.email = _email
+    db.session.commit()
+
+    security_code = functions.code_generator()
+    exp = datetime.utcnow() + timedelta(seconds=600)
+    user_sc = SecurityCodes(user_id=user.id, code=security_code, expiration=int(exp.timestamp()))
+    db.session.add(user_sc)
+    db.session.commit()
+    functions.email_security_code(username, _email, security_code)
+    return jsonify({'message': 'Email was updated successfully! Check Your email for verification'}), 200
 
 
 # Main API routes for constellations, stars and TODO planets
