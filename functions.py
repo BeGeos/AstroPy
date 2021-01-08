@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from __init__ import app
 from models import User, AuthKeys
 import requests
 import re
@@ -6,10 +7,11 @@ import string
 import random
 import smtplib
 from messages import ReplyMessage
+from env import secret_keys
 
 # Email smtp setup for sending emails [environment variables]
-EMAIL_ADDRESS = 'YOUR_EMAIL_ADDRESS'
-EMAIL_PASSWORD = 'YOUR_APP_PASSWORD'
+EMAIL_ADDRESS = secret_keys['EMAIL_ADDRESS']
+EMAIL_PASSWORD = secret_keys['EMAIL_PASSWORD']
 
 
 # Api Token generator
@@ -52,7 +54,6 @@ def email_security_code(username, email, security_code):
     """Send a reply with the verification code to the user"""
     reply = ReplyMessage(EMAIL_ADDRESS, email, username, security_code)
     body = reply.verification_msg()
-
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         smtp.send_message(body)
@@ -76,7 +77,17 @@ def is_email_available(email):
     return True
 
 
-# Email API check
+# Password validation, nothing too fancy after all it's an api password
+# I mean you are not storing bank details or something
+# The more complex it is the better for you. I just want to make sure no empty string
+# or short password are sent
+def is_password_valid(password):
+    if len(password) < 4:
+        return False
+    return True
+
+
+# TODO Email API check
 def does_email_exist(email):
     pass
 
