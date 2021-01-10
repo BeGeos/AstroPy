@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from models import db, User, AuthKeys
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def auth_key_required(func):
@@ -15,9 +15,9 @@ def auth_key_required(func):
         check_auth = AuthKeys.query.filter_by(key=api_key).first()
 
         if check_auth:
-            if check_auth.expiration_date <= datetime.utcnow().timestamp():
-                db.session.delete(check_auth)
-                db.session.commit()
+            if check_auth.expiration_date <= datetime.now(timezone.utc).timestamp():
+                # db.session.delete(check_auth)
+                # db.session.commit()
                 return jsonify({'message': 'Expired token'})
             current_calls = check_auth.user.calls
             current_user = User.query.get(check_auth.user_id)
