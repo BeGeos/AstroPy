@@ -1,12 +1,13 @@
 from __init__ import app
 from flask import request, jsonify
 from models import db, Constellation, Stars, ConstellationSchema, SingleStarSchema, StarSchema
-from models import User, AuthKeys, SecurityCodes, Recovery
+from models import AuthKeys
 from messages import messages
 from werkzeug import exceptions
 from flask_cors import CORS
 import functions
 from wrappers import auth_key_required
+from env import secret_keys
 
 # Schema init
 constellation_schema = ConstellationSchema()
@@ -172,7 +173,7 @@ def where_to_look():
         city = request.args['city']
         coordinates = functions.geocoding_api(city)
         if coordinates is None:
-            return jsonify({'message': f"{city} not found"}), 204
+            return jsonify({'message': f'{city} not found'}), 204
         response['lat'] = coordinates['lat']
         response['lon'] = coordinates['lon']
         lat = functions.check_if_north(coordinates['lat'])
@@ -263,7 +264,7 @@ def brightest(limit):
 @app.route('/astropy/api/put-auth-key', methods=['PUT'])
 def put_auth_in_db():
     admin_key = request.form['admin key']
-    if admin_key != '1234':
+    if admin_key != secret_keys['ADMIN_KEY']:
         return jsonify({'message': 'Wrong key provided'}), 401
 
     user_id = request.form['user id']
@@ -278,7 +279,7 @@ def put_auth_in_db():
 @app.route('/astropy/api/delete-auth-key', methods=['DELETE'])
 def delete_auth_key():
     admin_key = request.form['admin key']
-    if admin_key != '1234':
+    if admin_key != secret_keys['ADMIN_KEY']:
         return jsonify({'message': 'Wrong key provided'}), 401
     user_id = request.form['user id']
     api_key = request.form['api key']
@@ -289,6 +290,25 @@ def delete_auth_key():
         return jsonify({'message': 'Deleted correctly'}), 202
     except exceptions:
         return jsonify({'message': 'No record found'}), 404
+
+
+@app.route('/astropy/api/update-auth-status', methods=['PUT'])
+def update_auth_status():
+    admin_key = request.form['admin key']
+    if admin_key != secret_keys['ADMIN_KEY']:
+        return jsonify({'message': 'Wrong key provided'}), 401
+
+    user_id = request.form['user id']
+    api_key = request.form['api key']
+    status = request.form['status']
+    auth_key = AuthKeys.query.filter_by(user_id=user_id, key=api_key).first()
+    if status == 'True':
+        auth_key.active = True
+    elif status == 'False':
+        auth_key.active = False
+    db.session.commit()
+
+    return jsonify({'message': 'Status updated'}), 200
 
 
 if __name__ == '__main__':
