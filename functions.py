@@ -1,6 +1,16 @@
 from datetime import datetime, timedelta
 import requests
 import re
+from env import secret_keys
+
+
+# Website API call for db call count update
+def update_call_count(user_id):
+    payload = {'ADMIN_KEY': secret_keys['ADMIN_KEY'], 'user_id': user_id}
+    url = 'http://localhost:8000/super/'
+    r = requests.post(url, data=payload)
+    data = r.json()
+    return data['calls']
 
 
 def sun_time_from_api(lat, lon):
