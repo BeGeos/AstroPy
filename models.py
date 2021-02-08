@@ -26,7 +26,9 @@ class Constellation(db.Model):
     quadrant = db.Column(db.String(8), nullable=False)
     min_latitude = db.Column(db.Integer, nullable=False)
     max_latitude = db.Column(db.Integer, nullable=False)
-    best_seen = db.Column(db.String(8))
+    best_seen = db.Column(db.String(16))
+    abbreviation = db.Column(db.String(8))
+    alias = db.Column(db.String(64))
 
 
 class Stars(db.Model):
@@ -70,6 +72,7 @@ class SingleConstellationSchema(ma.SQLAlchemySchema):
         model = Constellation
 
     name = ma.auto_field()
+    abbreviation = ma.auto_field()
 
 
 class SingleStarSchema(ma.SQLAlchemySchema):
@@ -91,6 +94,8 @@ class ConstellationSchema(ma.SQLAlchemySchema):
 
     id = ma.auto_field()
     name = ma.auto_field()
+    abbreviation = ma.auto_field()
+    alias = ma.auto_field()
     right_ascension = ma.auto_field()
     declination = ma.auto_field()
     quadrant = ma.auto_field()
