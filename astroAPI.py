@@ -6,7 +6,7 @@ from messages import messages
 from werkzeug import exceptions
 from flask_cors import CORS
 import functions
-from wrappers import auth_key_required
+from wrappers import auth_key_required, admin_only
 from env import secret_keys
 
 # Schema init
@@ -39,7 +39,7 @@ def greetings():
 
 
 # Main API routes for constellations, stars and TODO planets
-@app.route('/astropy/api/v1/constellation', methods=['GET'])
+@app.route('/astropy/api/v1/constellation', methods=['GET', 'POST'])
 @auth_key_required
 def get_constellation():
     """Main path to make get requests for constellations.
@@ -48,7 +48,7 @@ def get_constellation():
         return jsonify({'message': messages['no argument']}), 400
 
     try:
-        c = request.args['c']
+        c = request.args['c'].lower()
     except exceptions.BadRequestKeyError:
         return jsonify({'message': messages['bad request']}), 400
 
@@ -58,7 +58,7 @@ def get_constellation():
     return jsonify({'constellation': output}), 200
 
 
-@app.route('/astropy/api/v1/query', methods=['GET'])
+@app.route('/astropy/api/v1/query', methods=['GET', 'POST'])
 @auth_key_required
 def get_constellations_via_query():
     """It allows flexibility upon constellation lookups. As a simple db search.
@@ -68,50 +68,52 @@ def get_constellations_via_query():
         return jsonify({'message': messages['no argument']}), 400
 
     if 'q' in request.args and 'min' in request.args and 'max' in request.args:
-        obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                  min_latitude=request.args['min'],
-                                                  max_latitude=request.args['max'])
+        obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'],
+                                                           Constellation.min_latitude >= int(request.args['min']),
+                                                           Constellation.max_latitude <= int(request.args['max']))
 
     if 'q' in request.args:
-        obj_query = Constellation.query.filter_by(quadrant=request.args['q'])
+        obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'])
 
         if 'min' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      min_latitude=request.args['min'])
+            obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'],
+                                                               Constellation.min_latitude >= int(request.args['min']))
+
         if 'max' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      max_latitude=request.args['max'])
+            obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'],
+                                                               Constellation.max_latitude <= int(request.args['max']))
 
     if 'min' in request.args:
-        obj_query = Constellation.query.filter_by(min_latitude=request.args['min'])
+        obj_query = db.session.query(Constellation).filter(Constellation.min_latitude >= int(request.args['min']))
 
         if 'q' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      min_latitude=request.args['min'])
+            obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'],
+                                                               Constellation.min_latitude >= int(request.args['min']))
         if 'max' in request.args:
-            obj_query = Constellation.query.filter_by(min_latitude=request.args['min'],
-                                                      max_latitude=request.args['max'])
+            obj_query = db.session.query(Constellation).filter(Constellation.max_latitude <= int(request.args['max']),
+                                                               Constellation.min_latitude >= int(request.args['min']))
 
     if 'max' in request.args:
-        obj_query = Constellation.query.filter_by(max_latitude=request.args['max'])
+        obj_query = db.session.query(Constellation).filter(Constellation.max_latitude >= int(request.args['max']))
 
         if 'min' in request.args:
-            obj_query = Constellation.query.filter_by(max_latitude=request.args['max'],
-                                                      min_latitude=request.args['min'])
+            obj_query = db.session.query(Constellation).filter(Constellation.max_latitude <= int(request.args['max']),
+                                                               Constellation.min_latitude >= int(request.args['min']))
         if 'q' in request.args:
-            obj_query = Constellation.query.filter_by(quadrant=request.args['q'],
-                                                      max_latitude=request.args['max'])
+            obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'],
+                                                               Constellation.max_latitude <= int(request.args['max']))
 
     if obj_query is None or len(obj_query.all()) == 0:
-        return jsonify({'message': messages['not found']}), 204
+        return jsonify({'message': messages['not found']}), 404
     else:
         output = constellations_schema.dump(obj_query)
 
     return jsonify({'constellation': output}), 200
 
 
-@app.route('/astropy/api/v1/constellation/all')
-@auth_key_required
+@app.route('/astropy/api/v1/constellation/all', methods=['POST'])
+@admin_only
+# @auth_key_required
 def get_all_constellations():
     """Route that yields all the constellations: FYI there are 88"""
     _all = Constellation.query.all()
@@ -119,7 +121,7 @@ def get_all_constellations():
     return jsonify({'constellations': output}), 200
 
 
-@app.route('/astropy/api/v1/star')
+@app.route('/astropy/api/v1/star', methods=['GET', 'POST'])
 @auth_key_required
 def get_star():
     """Route to get single stars from the query, only parameter as s accepted"""
@@ -134,7 +136,8 @@ def get_star():
 
 
 @app.route('/astropy/api/v1/star/all')
-@auth_key_required
+@admin_only
+# @auth_key_required
 def get_all_stars():
     """It returns all the stars of all the constellations. They are in the range
     between 450-650, the real count would be way higher, but it considers
@@ -147,7 +150,7 @@ def get_all_stars():
 
 # TODO get stars via query -- distance only
 
-@app.route('/astropy/api/v1/where-to-look')
+@app.route('/astropy/api/v1/where-to-look', methods=['GET', 'POST'])
 @auth_key_required
 def where_to_look():
     """ Parameters: [latitude as lat and longitude as lon, and the star to observe as s]
@@ -173,7 +176,7 @@ def where_to_look():
         city = request.args['city']
         coordinates = functions.geocoding_api(city)
         if coordinates is None:
-            return jsonify({'message': f'{city} not found'}), 204
+            return jsonify({'message': f'{city} not found'}), 404
         response['lat'] = coordinates['lat']
         response['lon'] = coordinates['lon']
         lat = functions.check_if_north(coordinates['lat'])
@@ -184,12 +187,11 @@ def where_to_look():
     try:
         star = Stars.query.filter_by(star=s).first()
     except exceptions.NotFound:
-        return jsonify({'message': messages['not found']}), 204
+        return jsonify({'message': messages['not found']}), 404
 
     declination = star.declination
     RA = star.right_ascension
     response['declination'] = declination
-    response['right ascension'] = RA
     int_declination = int(declination[:3])
 
     where = int_declination - lat
@@ -200,7 +202,7 @@ def where_to_look():
     elif - 2 < where < + 2:
         response['where'] = 'just look over your head'
     elif where < 0:
-        response['where'] = f'{where}° towards south'
+        response['where'] = f'{abs(where)}° towards south'
     elif where > 0:
         response['where'] = f'{where}° towards north'
 
@@ -209,24 +211,27 @@ def where_to_look():
     response['sunrise at location'] = sun_time['sunrise']
     response['sunset at location'] = sun_time['sunset']
 
+    star_params = functions.star_rising_time(int(RA[:2]), sun_time, RA)
+    response['current delay'] = star_params['current ra']
+
     # Check for circumpolar stars
     if lat + int_declination > 90 or lat + int_declination < - 90:
-        response['it rises'] = f'{s} is always visible from this location'
+        response['it rises'] = f'{s} is circumpolar star, hence it is always visible from this location'
 
     else:
-        star_time = functions.star_rising_time(int(RA[:2]), sun_time)
-        if 'star rise' in star_time:
-            degrees = functions.calculate_position(star_time['star rise'], sun_time['utc'])
+
+        if 'star rise' in star_params:
+            degrees = functions.calculate_position(star_params['star rise'], sun_time['utc'])
             response['current position'] = degrees
-            response['it rises'] = star_time['star rise']
-            response['it sets'] = star_time['star set']
+            response['it rises'] = star_params['star rise']
+            response['it sets'] = star_params['star set']
             # response['closest RA'] = star_time['closest delay']
         else:
-            response['current position'] = star_time
+            response['current position'] = star_params
     return jsonify(response), 200
 
 
-@app.route('/astropy/api/v1/star/closest/<int:limit>')
+@app.route('/astropy/api/v1/star/closest/<int:limit>', methods=['GET', 'POST'])
 @auth_key_required
 def closest(limit):
     """Simple route to get the closest stars in the system, the integer is part
@@ -243,7 +248,7 @@ def closest(limit):
     return jsonify(output), 200
 
 
-@app.route('/astropy/api/v1/star/brightest/<int:limit>')
+@app.route('/astropy/api/v1/star/brightest/<int:limit>', methods=['GET', 'POST'])
 @auth_key_required
 def brightest(limit):
     """Simple route to get the brightest stars in the system, the integer is part
@@ -265,7 +270,7 @@ def brightest(limit):
 def put_auth_in_db():
     admin_key = request.form['admin key']
     if admin_key != secret_keys['ADMIN_KEY']:
-        return jsonify({'message': 'Wrong key provided'}), 401
+        return jsonify({'message': 'Invalid admin key'}), 403
 
     user_id = request.form['user id']
     api_key = request.form['api key']
@@ -280,7 +285,7 @@ def put_auth_in_db():
 def delete_auth_key():
     admin_key = request.form['admin key']
     if admin_key != secret_keys['ADMIN_KEY']:
-        return jsonify({'message': 'Wrong key provided'}), 401
+        return jsonify({'message': 'Invalid admin key'}), 403
     user_id = request.form['user id']
     api_key = request.form['api key']
     record = AuthKeys.query.filter_by(user_id=user_id, key=api_key).first()
@@ -296,7 +301,7 @@ def delete_auth_key():
 def update_auth_status():
     admin_key = request.form['admin key']
     if admin_key != secret_keys['ADMIN_KEY']:
-        return jsonify({'message': 'Wrong key provided'}), 401
+        return jsonify({'message': 'Invalid admin key'}), 403
 
     user_id = request.form['user id']
     api_key = request.form['api key']
