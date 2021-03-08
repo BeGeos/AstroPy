@@ -38,7 +38,6 @@ def sun_time_from_api(lat, lon):
 
 
 def star_rising_time(ra, sun_times: dict, right_ascension):
-    vernal_equinox = datetime(2020, 3, 21)
 
     # From API call
     sunrise = int(sun_times['sunrise'])
@@ -46,6 +45,7 @@ def star_rising_time(ra, sun_times: dict, right_ascension):
 
     today = datetime.today()
     current_year = today.year
+    vernal_equinox = datetime(current_year, 3, 21)
 
     # Theory of right ascension
     time_of_year = {
