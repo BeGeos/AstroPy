@@ -18,7 +18,7 @@ def auth_key_required(func):
                     return jsonify({'message': 'Invalid Admin Key'}), 403
 
         if 'appid' not in request.args:
-            return jsonify({'message': 'Missing token'})
+            return jsonify({'message': 'Missing token'}), 400
 
         api_key = request.args['appid']
         check_auth = AuthKeys.query.filter_by(key=api_key).first()
@@ -28,13 +28,13 @@ def auth_key_required(func):
                 return jsonify({'message': 'Expired token'})
             if not check_auth.active:
                 return jsonify({'message': 'This api key is not active'})
-            # current_calls = update_call_count(check_auth.user_id)
-            # if current_calls == 0:
-            #     return jsonify({'message': 'You have reached the limit of requests'})
+            current_calls = update_call_count(check_auth.user_id)
+            if current_calls == 0:
+                return jsonify({'message': 'You have reached the limit of requests'})
 
             return func(*args, **kwargs)
 
-        return jsonify({'message': 'Invalid token'}), 401
+        return jsonify({'message': 'Invalid token'}), 403
 
     return wrapper
 
@@ -44,7 +44,7 @@ def admin_only(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        print(request.get_json())
+        # print(request.get_json())
         if request.get_json() is None:
             return jsonify({'message': 'No valid argument'}), 404
         if 'ADMIN_KEY' in request.get_json():
