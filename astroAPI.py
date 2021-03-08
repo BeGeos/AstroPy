@@ -21,21 +21,27 @@ CORS(app)
 
 
 # API logic
-@app.route('/')
+@app.route('/astropy')
 def home():
     return jsonify({'Welcome': messages['welcome']})
 
 
-@app.route('/hello', methods=['GET'])
+@app.route('/astropy/hello', methods=['GET'])
 def greetings():
     """Greeting message to the user, insert first and last name in the query
     URL and you will receive a small greeting message"""
     if not request.args:
         return jsonify({'message': messages['hello']}), 204
 
-    response = {'Hello, There': [request.args['name'],
-                                 request.args['last']]}
-    return jsonify(response), 200
+    try:
+        name_last = [request.args['name'], request.args['last']]
+
+        name = " ".join(name_last)
+
+        response = {'Hello, There': name}
+        return jsonify(response), 200
+    except exceptions.BadRequestKeyError as b:
+        return jsonify({'message': 'Bad Request'}), 400
 
 
 # Main API routes for constellations, stars and TODO planets
@@ -66,6 +72,8 @@ def get_constellations_via_query():
 
     if not request.args:
         return jsonify({'message': messages['no argument']}), 400
+
+    obj_query = None
 
     if 'q' in request.args and 'min' in request.args and 'max' in request.args:
         obj_query = db.session.query(Constellation).filter(Constellation.quadrant == request.args['q'],
@@ -108,7 +116,7 @@ def get_constellations_via_query():
     else:
         output = constellations_schema.dump(obj_query)
 
-    return jsonify({'constellation': output}), 200
+    return jsonify({'constellations': output}), 200
 
 
 @app.route('/astropy/api/v1/constellation/all', methods=['POST'])
@@ -128,11 +136,14 @@ def get_star():
     if not request.args:
         return jsonify({'message': messages['no argument']}), 400
 
-    s = request.args['s']
-    query_result = Stars.query.filter_by(star=s).first_or_404()
-    output = single_star_schema.dump(query_result)
+    try:
+        s = request.args['s'].lower()
+        query_result = Stars.query.filter_by(star=s).first_or_404()
+        output = single_star_schema.dump(query_result)
+        return jsonify({'star': output}), 200
 
-    return jsonify({'star': output}), 200
+    except exceptions.BadRequestKeyError:
+        return jsonify({'message': 'Bad Request'}), 400
 
 
 @app.route('/astropy/api/v1/star/all')
@@ -165,13 +176,19 @@ def where_to_look():
         return jsonify({'message': messages['no argument']}), 400
 
     response = {}
-    s = request.args['s']
+    s = request.args['s'].lower()
     response['star'] = s
+    star = Stars.query.filter_by(star=s).first()
+    if not star:
+        return jsonify({'message': messages['not found']}), 404
     if 'lat' in request.args and 'lon' in request.args:
         response['lat'] = request.args['lat']
         response['lon'] = request.args['lon']
-        lat = int(request.args['lat'])
-        lon = int(request.args['lon'])
+        try:
+            lat = int(request.args['lat'])
+            lon = int(request.args['lon'])
+        except ValueError:
+            return jsonify({'message': 'Format not valid'}), 400
     elif 'city' in request.args:
         city = request.args['city']
         coordinates = functions.geocoding_api(city)
@@ -183,11 +200,6 @@ def where_to_look():
         lon = functions.check_if_east(coordinates['lon'])
     else:
         return jsonify({'message': messages['no coordinates']}), 400
-
-    try:
-        star = Stars.query.filter_by(star=s).first()
-    except exceptions.NotFound:
-        return jsonify({'message': messages['not found']}), 404
 
     declination = star.declination
     RA = star.right_ascension
