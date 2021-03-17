@@ -176,7 +176,11 @@ def where_to_look():
         return jsonify({'message': messages['no argument']}), 400
 
     response = {}
-    s = request.args['s'].lower()
+    try:
+        s = request.args['s'].lower()
+    except exceptions.BadRequestKeyError:
+        return jsonify({'message': 'No star specified'}), 400
+
     response['star'] = s
     star = Stars.query.filter_by(star=s).first()
     if not star:
@@ -225,6 +229,8 @@ def where_to_look():
 
     star_params = functions.star_rising_time(int(RA[:2]), sun_time, RA)
     response['current delay'] = star_params['current ra']
+    if star_params['message'] is not None:
+        response['message'] = star_params['message']
 
     # Check for circumpolar stars
     if lat + int_declination > 90 or lat + int_declination < - 90:

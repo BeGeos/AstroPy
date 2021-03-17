@@ -74,6 +74,8 @@ def star_rising_time(ra, sun_times: dict, right_ascension):
             closest_delay = time_of_year[k]
             base = abs(delta)
 
+    message = None
+
     # Find the rise time of the star if it's lower than 1 it means the star rises and sets
     # along whit the Sun, therefore there is no time when it becomes observable
     if closest_delay > 1:
@@ -82,8 +84,10 @@ def star_rising_time(ra, sun_times: dict, right_ascension):
         star_rise = sunrise - abs(closest_delay)
         if star_rise < 0:
             star_rise += 24
-    elif - 1 <= closest_delay <= 1:
-        return 'This star is not observable now because it rises and sets along with the Sun'
+    else:
+        message = 'This star is not observable now because it rises and sets along with the Sun'
+        star_rise = sunrise
+        # return 'This star is not observable now because it rises and sets along with the Sun'
     if star_rise == 24:
         star_rise -= 24
     star_set = star_rise + 12
@@ -96,7 +100,7 @@ def star_rising_time(ra, sun_times: dict, right_ascension):
 
     current_ra = str(closest_delay) + right_ascension[2:]
 
-    return {'star rise': star_rise, 'star set': star_set,
+    return {'star rise': star_rise, 'star set': star_set, 'message': message,
             'day': day, 'star span': star_span, 'current ra': current_ra}
 
 
