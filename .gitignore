@@ -1,0 +1,11 @@
+database/astropy_db.sql
+migrations/versions
+migrations/alembic.ini
+migrations/env.py
+migrations/README
+migrations/script.py.mako
+/astropy/astropy.db
+/astropy/env.py
+/astropy/idea
+__pycache__
+.DS_Store
